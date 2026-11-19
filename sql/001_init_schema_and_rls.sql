@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DROP TRIGGER IF EXISTS trg_user_profiles_updated_at ON public.user_profiles;
 CREATE TRIGGER trg_user_profiles_updated_at
 BEFORE UPDATE ON public.user_profiles
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -120,6 +121,7 @@ CREATE TABLE IF NOT EXISTS public.user_baselines (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DROP TRIGGER IF EXISTS trg_user_baselines_updated_at ON public.user_baselines;
 CREATE TRIGGER trg_user_baselines_updated_at
 BEFORE UPDATE ON public.user_baselines
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -145,6 +147,7 @@ CREATE TABLE IF NOT EXISTS public.insole_devices (
 
 CREATE INDEX IF NOT EXISTS idx_insole_devices_user_id ON public.insole_devices(user_id);
 
+DROP TRIGGER IF EXISTS trg_insole_devices_updated_at ON public.insole_devices;
 CREATE TRIGGER trg_insole_devices_updated_at
 BEFORE UPDATE ON public.insole_devices
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -220,6 +223,7 @@ CREATE TABLE IF NOT EXISTS public.run_sessions (
 CREATE INDEX IF NOT EXISTS idx_run_sessions_user_started_at
     ON public.run_sessions(user_id, started_at DESC);
 
+DROP TRIGGER IF EXISTS trg_run_sessions_updated_at ON public.run_sessions;
 CREATE TRIGGER trg_run_sessions_updated_at
 BEFORE UPDATE ON public.run_sessions
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -286,23 +290,30 @@ ALTER TABLE public.run_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.run_splits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.run_posture_reports ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS pol_user_profiles_owner ON public.user_profiles;
 CREATE POLICY pol_user_profiles_owner ON public.user_profiles
     FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS pol_user_baselines_owner ON public.user_baselines;
 CREATE POLICY pol_user_baselines_owner ON public.user_baselines
     FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS pol_insole_devices_owner ON public.insole_devices;
 CREATE POLICY pol_insole_devices_owner ON public.insole_devices
     FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS pol_music_presets_read_all ON public.music_presets;
 CREATE POLICY pol_music_presets_read_all ON public.music_presets
     FOR SELECT USING (TRUE);
 
+DROP POLICY IF EXISTS pol_run_sessions_owner ON public.run_sessions;
 CREATE POLICY pol_run_sessions_owner ON public.run_sessions
     FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS pol_run_splits_owner ON public.run_splits;
 CREATE POLICY pol_run_splits_owner ON public.run_splits
     FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS pol_run_posture_reports_owner ON public.run_posture_reports;
 CREATE POLICY pol_run_posture_reports_owner ON public.run_posture_reports
     FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
