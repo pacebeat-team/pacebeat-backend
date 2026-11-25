@@ -27,8 +27,12 @@ class RecommendedGoalView(BaseModel):
     distance_km: float
     target_duration_sec: int
     target_pace_sec_per_km: int
-    basis_type: str  # "recent_runs" | "baseline" | "default_starter"
+    basis_type: str  # "recent_runs" | "baseline" | "onboarding" | "default_starter"
     basis_description: str
+    display_pace_sec_per_km: int | None = None
+    warmup_pace_sec_per_km: int | None = None
+    rhythm_pace_sec_per_km: int | None = None
+    realtime_initial_pace_sec_per_km: int | None = None
 
 
 class HomeSummaryResponse(BaseModel):

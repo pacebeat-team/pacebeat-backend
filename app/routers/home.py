@@ -9,9 +9,9 @@ from app.schemas.common import MetricStatusType
 from app.schemas.home import (
     HomeSummaryResponse,
     LastRunBrief,
-    RecommendedGoalView,
     WeeklyActivitySummary,
 )
+from app.services.recommendation_service import RecommendationService
 
 KST = ZoneInfo("Asia/Seoul")
 router = APIRouter(prefix="/api/v1/home", tags=["Home"])
@@ -93,37 +93,11 @@ async def get_home_summary(
         else None
     )
 
-    baseline_row = (
-        await db.execute(
-            text("SELECT quality_status, baseline_pace_sec_per_km FROM public.user_baselines WHERE user_id = :uid"),
-            {"uid": uid},
-        )
-    ).first()
-
-    baseline_status = (
-        MetricStatusType(baseline_row._mapping["quality_status"])
-        if baseline_row
-        else MetricStatusType.no_data
+    recommended, baseline_status = await RecommendationService.get_recommended_goal(
+        db=db,
+        user_id=user.user_id,
+        now_kst=now_kst,
     )
-    baseline_pace = baseline_row._mapping["baseline_pace_sec_per_km"] if baseline_row else None
-
-    if baseline_status == MetricStatusType.valid and baseline_pace:
-        pace = int(baseline_pace)
-        recommended = RecommendedGoalView(
-            distance_km=3.0,
-            target_duration_sec=pace * 3,
-            target_pace_sec_per_km=pace,
-            basis_type="baseline",
-            basis_description="기초 측정 기준 페이스를 바탕으로 설정된 목표입니다.",
-        )
-    else:
-        recommended = RecommendedGoalView(
-            distance_km=3.0,
-            target_duration_sec=1260,
-            target_pace_sec_per_km=420,
-            basis_type="default_starter",
-            basis_description="누구나 부담 없이 시작할 수 있는 기본 3.0 km 목표입니다.",
-        )
 
     return HomeSummaryResponse(
         weekly_activity=WeeklyActivitySummary(
