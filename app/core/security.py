@@ -47,7 +47,6 @@ async def get_current_user(
                 options={"verify_aud": False},
             )
         else:
-            # ES256 / RS256 등 비대칭 키는 Supabase JWKS 공개키로 검증
             signing_key = get_jwk_client(settings.SUPABASE_URL).get_signing_key_from_jwt(token)
             payload = jwt.decode(
                 token,
@@ -60,9 +59,16 @@ async def get_current_user(
         if not sub:
             raise ValueError("Missing sub claim")
         return AuthenticatedUser(user_id=UUID(sub), email=payload.get("email"))
+    except jwt.ExpiredSignatureError as exc:
+        raise AppError(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            error_code="AUTH_TOKEN_EXPIRED",
+            message="인증 토큰이 만료되었습니다.",
+        ) from exc
     except (jwt.PyJWTError, ValueError) as exc:
+        # Q16 반영: 내부 예외 상세나 시크릿 정보를 응답에 노출하지 않음
         raise AppError(
             status_code=status.HTTP_401_UNAUTHORIZED,
             error_code="AUTH_INVALID_TOKEN",
-            message=f"유효하지 않거나 만료된 토큰입니다: {exc}",
+            message="유효하지 않은 인증 토큰입니다.",
         ) from exc

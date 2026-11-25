@@ -11,11 +11,13 @@ class Settings(BaseSettings):
     APP_NAME: str = "pacebeat-backend"
     APP_ENV: str = "development"
     PORT: int = 8000
-    CORS_ORIGINS: List[str] = ["http://localhost:5173"]
+    CORS_ORIGINS: List[str] = ["http://localhost:5173", "https://pipace.netlify.app"]
 
     SUPABASE_URL: str = "https://your-project-ref.supabase.co"
     SUPABASE_KEY: str = "your-supabase-anon-or-service-role-key"
     SUPABASE_JWT_SECRET: str = "your-supabase-jwt-secret"
+    # 계정 완전 탈퇴(auth.users 삭제) 시 사용하는 선택적 Service Role 키
+    SUPABASE_SERVICE_ROLE_KEY: str | None = None
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/postgres"
 
     @field_validator("CORS_ORIGINS", mode="before")
