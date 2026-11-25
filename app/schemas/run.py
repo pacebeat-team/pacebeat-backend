@@ -207,3 +207,7 @@ class RunDetailResponse(RunSummaryItemResponse):
     gps_gaps: List[GpsGapPayload]
     reflection: RunReflectionPayload | None
     posture_report: PostureReportPayload | None
+
+
+class RunBulkDeleteResponse(BaseModel):
+    deleted_count: int
