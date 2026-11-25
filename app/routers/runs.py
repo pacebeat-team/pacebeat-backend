@@ -112,3 +112,17 @@ async def update_run_reflection(
         raise AppError(404, "RUN_NOT_FOUND", "해당 러닝 기록을 찾을 수 없습니다.")
     await db.commit()
     return await RunService.get_run_detail(db, user.user_id, run_id)
+
+@router.delete("/runs/{run_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_run_session(
+    run_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> None:
+    res = await db.execute(
+        text("DELETE FROM public.run_sessions WHERE id = :run_id AND user_id = :user_id RETURNING id"),
+        {"run_id": str(run_id), "user_id": str(user.user_id)},
+    )
+    if not res.first():
+        raise AppError(404, "RUN_NOT_FOUND", "해당 러닝 기록을 찾을 수 없습니다.")
+    await db.commit()
