@@ -1,7 +1,10 @@
 from datetime import datetime
+from typing import List, Literal
 from uuid import UUID
 from pydantic import BaseModel, Field, model_validator
 from app.schemas.common import GenderType, MetricStatusType, RunningExperienceType, WeeklyRunsType
+from app.schemas.device import InsoleDeviceResponse
+from app.schemas.run import RunDetailResponse
 
 
 class ConsentPayload(BaseModel):
@@ -18,7 +21,22 @@ class GuidanceSettingsPayload(BaseModel):
     voice_guidance_enabled: bool = True
     vibration_guidance_enabled: bool = True
     guidance_frequency_km: float = Field(default=1.0, ge=0.5, le=10.0)
-    vibration_intensity: str = Field(default="medium", pattern="^(low|medium|high)$")
+    vibration_intensity: Literal["low", "medium", "high"] = "medium"
+    # 프론트엔드 src/features/my/guidanceSettings.ts 대응 필드
+    beat_guidance_enabled: bool = True
+    guidance_frequency_mode: Literal["perKm", "offPace", "both"] = "offPace"
+    auto_pause_enabled: bool = True
+
+
+class GuidanceSettingsUpdateRequest(BaseModel):
+    """PATCH /api/v1/users/me/guidance 부분 갱신(exclude_unset=True) 요청 스키마"""
+    voice_guidance_enabled: bool | None = None
+    vibration_guidance_enabled: bool | None = None
+    guidance_frequency_km: float | None = Field(default=None, ge=0.5, le=10.0)
+    vibration_intensity: Literal["low", "medium", "high"] | None = None
+    beat_guidance_enabled: bool | None = None
+    guidance_frequency_mode: Literal["perKm", "offPace", "both"] | None = None
+    auto_pause_enabled: bool | None = None
 
 
 class UserProfileUpdateRequest(BaseModel):
@@ -80,3 +98,22 @@ class BaselineResponse(BaseModel):
     valid_duration_ms: int | None
     distance_m: float | None
     measured_at: datetime | None
+
+
+class FrontendExportRow(BaseModel):
+    """프론트엔드 src/features/my/dataExport.ts ExportRow 1:1 호환 스키마"""
+    recordId: str
+    date: str
+    mode: Literal["gps", "time"]
+    distanceKm: float | None
+    durationSec: int
+    paceSecPerKm: int | None
+
+
+class DataExportResponse(BaseModel):
+    exported_at: datetime
+    records: List[FrontendExportRow]
+    profile: UserProfileResponse
+    baseline: BaselineResponse
+    insole_devices: List[InsoleDeviceResponse]
+    run_sessions: List[RunDetailResponse]  # 구간 기록(splits)과 회고(reflection)가 모두 포함된 상세 목록
