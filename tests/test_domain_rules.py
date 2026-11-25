@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
-from app.schemas.common import MetricStatusType, RunCompletionType, RunModeType
+from zoneinfo import ZoneInfo
+from app.main import app
+from app.routers.growth import _build_calendar_ranges
+from app.schemas.common import GrowthPeriodType, MetricStatusType, RunCompletionType, RunModeType
 from app.schemas.run import PostureReportPayload, RunCreateRequest, TargetValidateRequest
-from app.schemas.user import BaselineUpsertRequest
+from app.schemas.user import BaselineUpsertRequest, FrontendExportRow, GuidanceSettingsUpdateRequest
 from app.services.run_service import RunService
 
 
@@ -81,3 +84,43 @@ def test_single_foot_posture_report_clears_bilateral_load_ratios() -> None:
     assert report.right_load_ratio_pct is None
     assert report.ground_contact_time_left_ms == 245
     assert report.ground_contact_time_right_ms is None
+
+
+def test_guidance_partial_update_preserves_unset_fields() -> None:
+    req = GuidanceSettingsUpdateRequest(beat_guidance_enabled=False)
+    patch = req.model_dump(exclude_unset=True)
+    assert patch == {"beat_guidance_enabled": False}
+
+
+def test_kst_calendar_ranges_weekly_and_monthly() -> None:
+    kst = ZoneInfo("Asia/Seoul")
+    now_kst = datetime(2026, 11, 25, 10, 0, tzinfo=kst)  # 수요일
+    weekly = _build_calendar_ranges(now_kst, GrowthPeriodType.weekly)
+    assert len(weekly) == 2
+    assert weekly[0][0].isoformat() == "2026-11-16"
+    assert weekly[1][0].isoformat() == "2026-11-23"
+
+    monthly = _build_calendar_ranges(now_kst, GrowthPeriodType.monthly)
+    assert len(monthly) >= 4
+    assert monthly[0][0].isoformat() == "2026-11-01"
+
+
+def test_frontend_export_row_accepts_null_pace() -> None:
+    row = FrontendExportRow(
+        recordId="rec-time-1",
+        date="2026-11-25T01:00:00+00:00",
+        mode="time",
+        distanceKm=None,
+        durationSec=600,
+        paceSecPerKm=None,
+    )
+    assert row.paceSecPerKm is None
+
+
+def test_fastapi_routes_registered() -> None:
+    paths = {(route.path, tuple(sorted(route.methods or []))) for route in app.routes}
+    assert ("/api/v1/runs/{run_id}", ("DELETE",)) in paths
+    assert ("/api/v1/runs/by-session/{client_session_id}", ("DELETE",)) in paths
+    assert any(p == "/api/v1/runs" and "DELETE" in m for p, m in paths)
+    assert any(p == "/api/v1/users/me/guidance" and "PATCH" in m for p, m in paths)
+    assert any(p == "/api/v1/users/me/data-export" and "POST" in m for p, m in paths)
