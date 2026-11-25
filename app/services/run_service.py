@@ -14,6 +14,7 @@ from app.schemas.run import (
     TargetValidateRequest,
     TargetValidateResponse,
 )
+from app.services.recommendation_service import compute_segment_paces
 
 # 프론트엔드 목표 페이스 정책(4:00/km = 240초 ~ 10:00/km = 600초)과 동일한 기준
 MIN_REALISTIC_PACE_SEC_PER_KM = 240
@@ -24,6 +25,10 @@ class RunService:
     @staticmethod
     def validate_target(payload: TargetValidateRequest) -> TargetValidateResponse:
         pace_sec = round(payload.target_duration_sec / payload.target_distance_km)
+        segments = compute_segment_paces(pace_sec)
+        trigger_m = round(payload.target_distance_km * 1000.0 * 0.85, 2)
+        freeze_m = round(payload.target_distance_km * 1000.0 * 0.95, 2)
+
         if pace_sec < MIN_REALISTIC_PACE_SEC_PER_KM:
             return TargetValidateResponse(
                 target_distance_km=payload.target_distance_km,
@@ -32,6 +37,11 @@ class RunService:
                 is_realistic=False,
                 warning_code="PACE_TOO_FAST",
                 warning_message="목표 페이스가 4:00/km보다 빠릅니다. 무리 없는 페이스로 조정해 보세요.",
+                warmup_pace_sec_per_km=segments.warmup_pace_sec_per_km,
+                rhythm_pace_sec_per_km=segments.rhythm_pace_sec_per_km,
+                realtime_initial_pace_sec_per_km=segments.realtime_initial_pace_sec_per_km,
+                realtime_trigger_distance_m=trigger_m,
+                realtime_freeze_distance_m=freeze_m,
             )
         if pace_sec > MAX_REALISTIC_PACE_SEC_PER_KM:
             return TargetValidateResponse(
@@ -41,6 +51,11 @@ class RunService:
                 is_realistic=False,
                 warning_code="PACE_TOO_SLOW",
                 warning_message="목표 페이스가 10:00/km보다 느립니다. 목표 시간을 확인해 주세요.",
+                warmup_pace_sec_per_km=segments.warmup_pace_sec_per_km,
+                rhythm_pace_sec_per_km=segments.rhythm_pace_sec_per_km,
+                realtime_initial_pace_sec_per_km=segments.realtime_initial_pace_sec_per_km,
+                realtime_trigger_distance_m=trigger_m,
+                realtime_freeze_distance_m=freeze_m,
             )
         return TargetValidateResponse(
             target_distance_km=payload.target_distance_km,
@@ -49,6 +64,11 @@ class RunService:
             is_realistic=True,
             warning_code=None,
             warning_message=None,
+            warmup_pace_sec_per_km=segments.warmup_pace_sec_per_km,
+            rhythm_pace_sec_per_km=segments.rhythm_pace_sec_per_km,
+            realtime_initial_pace_sec_per_km=segments.realtime_initial_pace_sec_per_km,
+            realtime_trigger_distance_m=trigger_m,
+            realtime_freeze_distance_m=freeze_m,
         )
 
     @staticmethod

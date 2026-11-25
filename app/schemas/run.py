@@ -24,6 +24,11 @@ class TargetValidateResponse(BaseModel):
     is_realistic: bool
     warning_code: str | None  # None | "PACE_TOO_FAST" | "PACE_TOO_SLOW"
     warning_message: str | None
+    warmup_pace_sec_per_km: int | None = None
+    rhythm_pace_sec_per_km: int | None = None
+    realtime_initial_pace_sec_per_km: int | None = None
+    realtime_trigger_distance_m: float | None = None
+    realtime_freeze_distance_m: float | None = None
 
 
 class MusicPresetResponse(CamelModel):
