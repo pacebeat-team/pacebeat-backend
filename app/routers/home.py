@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,7 @@ from app.schemas.home import (
     WeeklyActivitySummary,
 )
 
+KST = ZoneInfo("Asia/Seoul")
 router = APIRouter(prefix="/api/v1/home", tags=["Home"])
 
 
@@ -21,9 +23,12 @@ async def get_home_summary(
     user: AuthenticatedUser = Depends(get_current_user),
 ) -> HomeSummaryResponse:
     uid = str(user.user_id)
-    now = datetime.now(timezone.utc)
-    # 월요일(0) 기준 이번 주 시작 시각
-    monday = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    now_kst = datetime.now(KST)
+    # KST 기준 이번 주 월요일 00:00:00 ~ 다음 주 월요일 00:00:00
+    monday_kst = (now_kst - timedelta(days=now_kst.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    next_monday_kst = monday_kst + timedelta(days=7)
 
     week_rows = (
         await db.execute(
@@ -31,11 +36,19 @@ async def get_home_summary(
                 """
                 SELECT started_at, mode, distance_m, elapsed_ms
                 FROM public.run_sessions
-                WHERE user_id = :uid AND started_at >= :monday
+                WHERE user_id = :uid
+                  AND started_at >= :monday_kst
+                  AND started_at < :next_monday_kst
+                  AND started_at <= :now_kst
                 ORDER BY started_at DESC
                 """
             ),
-            {"uid": uid, "monday": monday},
+            {
+                "uid": uid,
+                "monday_kst": monday_kst,
+                "next_monday_kst": next_monday_kst,
+                "now_kst": now_kst,
+            },
         )
     ).fetchall()
 
@@ -44,8 +57,8 @@ async def get_home_summary(
     total_elapsed_ms = 0
     for r in week_rows:
         m = r._mapping
-        weekday_idx = m["started_at"].weekday()
-        run_days[weekday_idx] = True
+        started_kst = m["started_at"].astimezone(KST)
+        run_days[started_kst.weekday()] = True
         total_elapsed_ms += int(m["elapsed_ms"])
         if m["mode"] == "gps" and m["distance_m"] is not None:
             gps_distances.append(float(m["distance_m"]))
@@ -56,12 +69,12 @@ async def get_home_summary(
                 """
                 SELECT id, started_at, completion, distance_m, elapsed_ms, avg_pace_sec_per_km
                 FROM public.run_sessions
-                WHERE user_id = :uid
+                WHERE user_id = :uid AND started_at <= :now_kst
                 ORDER BY started_at DESC
                 LIMIT 1
                 """
             ),
-            {"uid": uid},
+            {"uid": uid, "now_kst": now_kst},
         )
     ).first()
 
@@ -104,7 +117,6 @@ async def get_home_summary(
             basis_description="기초 측정 기준 페이스를 바탕으로 설정된 목표입니다.",
         )
     else:
-        # 기준이 없을 때 프론트엔드 기본 목표(3km, 21:00 = 1260초, 7:00/km = 420초)와 일치
         recommended = RecommendedGoalView(
             distance_km=3.0,
             target_duration_sec=1260,
